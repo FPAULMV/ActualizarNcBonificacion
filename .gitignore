@@ -1,0 +1,12 @@
+# Environment
+.env
+
+# Directories
+trash/
+env/
+__pycache__/
+reports/
+petrodiesel/
+proenergetics/
+sinergia/
+run/*.ps1
