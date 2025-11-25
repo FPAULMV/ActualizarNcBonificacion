@@ -28,16 +28,27 @@ class Sftp():
             ftp.connect(host, port, timeout=10)
             ftp.login(user, psw)
 
+            registros = {
+                "exitosos": [],
+                "fallidos": []
+            } 
+        
+            print(f"Archivos a enviar: {len(files)}")
             for local_file in files:
                 if not local_file.exists():
                     print(f"[ERROR] No se encontró: {local_file}")
+                    registros['fallidos'].append(local_file)
                     continue
 
                 print(f"Enviando: {local_file.name}")
-
                 with open(local_file, "rb") as f:
                     ftp.storbinary(f"STOR {local_file.name}", f)
-            
+                    registros['exitosos'].append(local_file)
+                
+            print(f"Total de archivos enviados: {len(registros['exitosos'])}")
+            print(f"Total de archivos NO enviados: {len(registros['fallidos'])}")
+            if len(registros['fallidos']) > 0:
+                print(f"DETALLE: {registros['fallidos']}")
 
 
     def ftp_unlink(local_file: Path) -> None:

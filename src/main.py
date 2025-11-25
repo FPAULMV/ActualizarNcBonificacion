@@ -20,11 +20,12 @@ class Bonificaciones():
                     sys.exit("-> Fin de la ejecucion del programa. <-".upper())
                 
                 df_filtrado = self.filtrar_df(df)
-                df_formateado = self.formatear_fechas_df(df_filtrado)
+                formato_int = self.formatear_columna(df_filtrado, 'client_id', 'NUMERO')
+                df_formateado = self.formatear_fechas_df(formato_int)
                 return df_formateado
             
         except Exception as e:
-            print("ERROR: Hubo un error al consultar los vencimientos.")
+            print("ERROR: Hubo un error al consultar el Concentrado de NC.")
             print(f"DETALLE: {e}")
             sys.exit("-> Fin de la ejecucion del programa. <-".upper())
         finally:
@@ -51,7 +52,6 @@ class Bonificaciones():
 
     def formatear_fechas_df(self, dataframe: DataFrame) -> DataFrame:
         """ Formatea las columnas 'Emision Sinergia' del dataframe."""
-        
         try:
             if dataframe.empty:
                 print("El dataframe a formatear está vacio.")
@@ -66,6 +66,43 @@ class Bonificaciones():
             sys.exit("-> Fin de la ejecucion del programa. <-".upper())
         finally:
             print("-> FIN: Termino de filtra el dataframe por 'Nota de Credito'\n")
+    
+
+    def formatear_columna(self, dataframe: DataFrame, columna: str, formato: str = None ) -> DataFrame:
+        """ 
+            Cambia el formato de una columna a un formato aplicable.
+            Formatos -> 'TEXTO, NUMERO, FECHA, FLOAT'
+        """
+
+        if columna not in dataframe.columns:
+            raise ValueError(f"La coumna '{columna}' no se encuentra en el dataframe.")
+        
+        serie = dataframe[columna]
+
+        if formato is None:
+            return dataframe
+        
+        f = formato.upper()
+        
+        if f == 'TEXTO':
+            dataframe[columna] = serie.astype(str)
+            return dataframe
+        
+        elif f == 'NUMERO':
+            dataframe[columna] = pandas.to_numeric(serie, errors='coerce').astype('Int64')
+            return dataframe
+        
+        elif f == 'FECHA':
+            dataframe[columna] = pandas.to_datetime(serie, errors='coerce', dayfirst=True)
+            return dataframe
+        
+        elif f == 'FLOAT':
+            dataframe[columna] = pandas.to_numeric(serie, errors='coerce')
+            return dataframe
+
+        else:
+            formatos_validos = 'TEXTO, NUMERO, FECHA, FLOAT'
+            raise ValueError(f"El formato '{f}' no es un formato soportado, pruebe con uno de los siguientes: {formatos_validos}")
 
     def obtener_dataframe_portal(self, query: str) -> DataFrame:
         """Obtiene el dataframe con la informacion de Portal.ClientUser"""
@@ -144,18 +181,190 @@ class Bonificaciones():
         finally:
             print("-> FIN: Termino de obtener la lista de los clientes unicos.\n")
 
+    def obtener_portal_id(self, client_id: str, dataframe_portal: DataFrame) -> list[str]:
+        """Filtra el dataframe con la informacion del portal y obtiene el id del cliente buscado."""
+        try:
+            df = dataframe_portal.copy()
+            df['ClientId'] = df['ClientId'].astype(str).str.strip()
+            client_id = str(client_id).strip()
+            if client_id in df["ClientId"].unique():
+                valor_id = df.loc[df["ClientId"] == client_id, "Id"].iloc[0]
+                return valor_id
+            else:
+                return None
+        except Exception as e:
+            print(f"ERROR: Ocurrio un error al buscar el Id del cliente {client_id}")
+            print(e)
+
+    def obtener_dataframe_cliente(self, dataframe: DataFrame, cliente: str) -> DataFrame:
+        """Filtra un dataframe segun el cliente que se le indique."""
+        try:
+            df_cliente = dataframe[dataframe['Destino'] == cliente]
+            return df_cliente
+        except Exception as e:
+            print("ERROR: Ocurrio un error al filtrar el dataframe segun el cliente.")
+            print(f"DETALLES:\n{e}")
+            sys.exit("-> Fin de la ejecucion del programa. <-".upper())
+        finally:
+            print(f"-> FIN: Termino de obtener el dataframe segun el cliente.\n")
+
+    def crear_cardsystem_insert(self, 
+            nombre_mostrar : str,
+            nombre_archivo: str,
+            destino: str) -> dict:
+        """ Crea un diccionario, util para hacer un INSERT a Cardsystem.ArchivosGenerales"""
+        
+        try:
+            ahora = datetime.now()
+            fecha_actual = ahora.strftime('%Y-%m-%d %H:%M:%S')
+            fecha_final = (ahora + timedelta(days= 2)).strftime('%Y-%m-%d %H:%M:%S')
+
+            return {
+                "nombre": nombre_mostrar,
+                "nombre_archivo": nombre_archivo.replace("/", "").replace("\\", ""),
+                "destino": str(destino),
+                "tipo": 1,
+                "fecha_inicio": fecha_actual,
+                "fecha_fin": fecha_final,
+                "fecha_creacion": fecha_actual,
+                }
+        except Exception as e:
+            print("ERROR: Ocurrio un error al crear la informacion para cardsystem.")
+            print(f"DETALLES:\n{e}")
+
+    def delete_registro_nc(self) -> None:
+        """Elimina todos los registros de 'Notas de crédito bonificacion' en CardSystem.ArchivosGenerales"""
+        print("Eliminando 'Notas de crédito bonificacion'.")
+        try: 
+            with engine.begin() as conn:
+                query = text("""DELETE FROM [NexusFuel].[CardSystem].[ArchivosGenerales]
+                             WHERE [Nombre] = 'Notas de crédito'""")
+                conn.execute(query)
+        except Exception as e:
+            print(f"ERROR: Ocurrio un error al eliminar los registros de 'Notas de crédito bonificacion' en CardSystem.ArchivosGenerales.")
+            print(f"DETALLES:\n{e}")
+        finally:
+            print(f"-> FIN: Termino la eliminacion de 'Notas de crédito bonificacion' en CardSystem.ArchivosGenerales.")
+
+    def excect_cardsystem_insert(self, insert_values: list[dict]) -> None:
+        """ Ejecuta una transaccion de multiples insert a cardsystem. """
+
+        insert_cardsystem = text("""
+            INSERT INTO [NexusFuel].[CardSystem].[ArchivosGenerales] 
+            (Nombre, nombreArchivo, Destino, Tipo, FechaInicio, FechaFin, FechaCreacion)
+            VALUES (:nombre, :nombre_archivo, :destino, :tipo, :fecha_inicio, :fecha_fin, :fecha_creacion);
+            """)
+        
+        registros = {
+            "exitosos": [],
+            "fallidos": [],
+            "errores": []
+        }
+
+        print(f"Total de registros a insertar: {len(insert_values)}")
+        with engine.connect() as conn:
+            transaction = conn.begin()
+
+            try:
+                for insert in insert_values:
+                    try:
+                        result = conn.execute(insert_cardsystem, insert)
+                        registros['exitosos'].append({
+                            "datos": insert,
+                            "nombre_archivo": insert['nombre_archivo'],
+                            "destino": insert['destino']
+                            })
+                        #print(f"INFO: Registro insertado: {insert['nombre_archivo']}")
+
+                    except Exception as e:
+                        registros["fallidos"].append(
+                            {
+                                "datos": insert,
+                                "nombre_archivo": insert["nombre_archivo"],
+                                "destino": insert['destino'],
+                                "error": str(e)
+                            })
+                        print(f"ERROR: Hubo un error al insertar el registro: {insert['nombre_archivo']}")
+                        print(f"DETALLES:\n{e}")
+                
+                transaction.commit()
+                print(f"Registros guardados correctamente.")
+            except Exception as e:
+                transaction.rollback()
+                print(f"INFO: Transaccion revertida. {str(e)}")
+                registros["errores"].append(f"Error general: {str(e)}")
+        return registros
+    
+    def datos_del_cliente(self, dataframe: DataFrame, nombre_referencia: str) -> dict:
+        """ Obtiene los requeridos datos del dataframe que filtramos por cliente"""
+        try:
+            nombre_cliente = dataframe['Destino'].unique()[0]
+            nombre_archivo = str(f"{nombre_referencia} {nombre_cliente}.csv")
+            client_id = dataframe['client_id'].unique()[0]
+            return {
+                "nombre_cliente": nombre_cliente,
+                "nombre_archivo": nombre_archivo,
+                "client_id": str(client_id)
+            }
+        except Exception as e:
+            print(f"ERROR: Hubo un error al crear el diccionario con los datos del cliente.")
+            print(f"DETALLES:\n{e}")
+        finally:
+            print("-> FIN: Termino de crear el diccionario con los datos del cliente.\n")
+
+class CrearDoumento():
+    """Crea documentos a partir de un DataFrame."""
+
+    def __init__(self, data_frame: DataFrame, carpeta_salida: Path):
+        self.data_frame = data_frame
+        self.carpeta_salida = Path(carpeta_salida)
+
+    def crear_documentos_csv(self, nombre_archivo: str) -> Path:
+        """ Crea un documento '.csv' """
+        try:
+            nombre_formateado = nombre_archivo.replace("/", "").replace("\\", "")
+            ruta = Path(self.carpeta_salida / nombre_formateado)
+            self.data_frame.to_csv(ruta, index= False, encoding= 'utf-8')
+            return ruta
+        except Exception as e:
+            print(f"Hubo un error al crear el archivo. {ruta}")
+            print(e)
+        finally:
+            (print("-> FIN: Termino la creacion del archivo.\n"))
+    
+    def limpiar_archivos(self, folder: Path) -> None:
+        """Borra solo archivos dentro de una carpeta (sin tocar subcarpetas)."""
+
+        if not folder.exists() or not folder.is_dir():
+            print(f"[ERROR] Carpeta inválida: {folder}")
+            return
+
+        for file in folder.glob("*"):
+            if file.is_file():
+                try:
+                    file.unlink()
+                except Exception as e:
+                    print(f"[ERROR] No se pudo borrar {file}: {e}")
+
 
 if __name__ == '__main__':
 
     try:
         load_dotenv()
-        QUERY_SINERGIA = os.getenv('QUERY_SINERGIA')
-        QUERY_SINERGIA_PORTAL_ID = os.getenv('QUERY_SINERGIA_PORTAL_ID')
+        # SFTP
+        HOST = str(os.getenv('HOST'))
+        PORT = int(os.getenv('PORT'))
+        USER = str(os.getenv('USER'))
+        PSW = str(os.getenv('PSW'))
+
+        # PATS
+        PATH_FILES_SINERGIA = Path(os.getenv('PATH_FILES_SINERGIA'))
         
         # SQL
-        CONN_STR = os.getenv('CONN_STR')
-        odbc_encoded = urllib.parse.quote_plus(CONN_STR)
-        engine = create_engine(f"mssql+pyodbc:///?odbc_connect={odbc_encoded}",pool_pre_ping=True,fast_executemany=True)
+        QUERY_SINERGIA = os.getenv('QUERY_SINERGIA')
+        QUERY_SINERGIA_PORTAL_ID = os.getenv('QUERY_SINERGIA_PORTAL_ID')
+        CONN_STR = urllib.parse.quote_plus(os.getenv('CONN_STR'))
+        engine = create_engine(f"mssql+pyodbc:///?odbc_connect={CONN_STR}",pool_pre_ping=True,fast_executemany=True)
         print("\n--- Variables de entorno cargadas con exito. ---\n".upper())
         
     except Exception as e:
@@ -174,6 +383,50 @@ if __name__ == '__main__':
     df_portal = bonificacion.obtener_dataframe_portal(QUERY_SINERGIA_PORTAL_ID)
     clientes = bonificacion.obtener_clientes(df_completo) # Clientes unicos
 
-    print(df_completo.to_string())
-    print(df_portal)
-    print(clientes)
+    CLIENTES_SIN_ID = []
+    ARCHIVOS_CREADOS_PATHS = []
+    INSERTS_ARCHIVOS_GENERALES = []
+    CLIENTES_NO_ENCONTRADOS = []
+
+    for _, row in clientes.iterrows():
+        cliente = row['Destino']
+        client_id = row['client_id']
+        id_cliente = bonificacion.obtener_portal_id(client_id, df_portal)
+        if id_cliente is None:
+            CLIENTES_SIN_ID.append(id_cliente)
+            continue
+        if cliente in df_completo['Destino'].values:
+            df_unico_cliente = bonificacion.obtener_dataframe_cliente(df_completo, cliente)
+            datos_cliente = bonificacion.datos_del_cliente(df_unico_cliente, "NC")
+            columnas_requeridas = ["Nota de Credito", "Concepto", "Destino",
+                            "Factura Sinergia", "Emision Sinergia",
+                            "Total Aplicado", "Fecha Bonificada"]
+
+            df_salida = bonificacion.filtrar_columnas_dataframe(df_unico_cliente, columnas_requeridas)
+
+            #print(f"{cliente} - {client_id} - {id_cliente}\n")
+            #print(f"Datos del cliente: \n{datos_cliente}")
+            #input(df_unico_cliente.to_string()) 
+            #input(df_salida.to_string())
+            
+            archivo_salida = CrearDoumento(df_salida, PATH_FILES_SINERGIA)
+            ruta_salida = archivo_salida.crear_documentos_csv(datos_cliente['nombre_archivo'])
+            ARCHIVOS_CREADOS_PATHS.append(ruta_salida)
+            INSERTS_ARCHIVOS_GENERALES.append(
+                bonificacion.crear_cardsystem_insert(
+                    "Notas de crédito bonificación",
+                    datos_cliente['nombre_archivo'],
+                    id_cliente))
+        
+        else:
+            CLIENTES_NO_ENCONTRADOS.append(cliente)
+    
+    bonificacion.delete_registro_nc()
+    registros_insert = bonificacion.excect_cardsystem_insert(INSERTS_ARCHIVOS_GENERALES)
+    sftp.ftp_send_list_files(HOST, PORT, USER, PSW, ARCHIVOS_CREADOS_PATHS)
+    archivo_salida.limpiar_archivos(PATH_FILES_SINERGIA)
+    print(("-> Fin de la ejecucion del programa. <-".upper()))
+
+
+
+

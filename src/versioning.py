@@ -1,6 +1,6 @@
-__app_name__ = "Vencimientos" 
+__app_name__ = "Notas de crédito bonificacion" 
 __version__ = "1.0.0"
-__release_date__ = "2025-11-05"
+__release_date__ = "2025-11-25"
 __author__ = "© Paul Morales -> paul.morales@fpaulmv.com"
 
 class Version():
@@ -13,7 +13,7 @@ class Version():
         banner = "="*50
 
         print(banner)
-        print(f"    --- {__app_name__} ---  \n")
+        print(f"    ----- {__app_name__} -----  \n")
         print(f"Última versión: {__version__} | Actualizado: {__release_date__}.\n")
         print(f"       {__author__}")
         print(banner)
