@@ -35,6 +35,11 @@ class Sftp():
         
             print(f"Archivos a enviar: {len(files)}")
             for local_file in files:
+                if local_file is None:
+                    print(f"[ERROR] la lista incluye un elemento no valido -> {local_file}")
+                    registros['fallidos'].append(str(f"Archivo invalido->{local_file}"))
+                    continue
+
                 if not local_file.exists():
                     print(f"[ERROR] No se encontró: {local_file}")
                     registros['fallidos'].append(local_file)

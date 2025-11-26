@@ -317,7 +317,13 @@ class CrearDoumento():
 
     def __init__(self, data_frame: DataFrame, carpeta_salida: Path):
         self.data_frame = data_frame
-        self.carpeta_salida = Path(carpeta_salida)
+        self.carpeta_salida = carpeta_salida
+
+        try:
+            self.carpeta_salida.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"ERROR al crear la carpeta: {e}")
+            sys.exit("-> Fin de la ejecucion del programa. <-".upper())
 
     def crear_documentos_csv(self, nombre_archivo: str) -> Path:
         """ Crea un documento '.csv' """
@@ -330,7 +336,7 @@ class CrearDoumento():
             print(f"Hubo un error al crear el archivo. {ruta}")
             print(e)
         finally:
-            (print("-> FIN: Termino la creacion del archivo.\n"))
+            print("-> FIN: Termino la creacion del archivo.\n")
     
     def limpiar_archivos(self, folder: Path) -> None:
         """Borra solo archivos dentro de una carpeta (sin tocar subcarpetas)."""
