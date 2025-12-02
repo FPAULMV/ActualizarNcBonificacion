@@ -10,7 +10,7 @@ class Bonificaciones():
     def __init__(self):
         pass
 
-    def obtener_vencimientos(self, query: str) -> DataFrame:
+    def obtener_ncbonificacion(self, query: str) -> DataFrame:
         try:
             query = text(query)
             with engine.connect() as conn:
@@ -238,13 +238,60 @@ class Bonificaciones():
         try: 
             with engine.begin() as conn:
                 query = text("""DELETE FROM [NexusFuel].[CardSystem].[ArchivosGenerales]
-                             WHERE [Nombre] = 'Notas de crédito'""")
+                             WHERE [Nombre] = 'Notas de crédito bonificación'""")
                 conn.execute(query)
         except Exception as e:
             print(f"ERROR: Ocurrio un error al eliminar los registros de 'Notas de crédito bonificacion' en CardSystem.ArchivosGenerales.")
             print(f"DETALLES:\n{e}")
         finally:
             print(f"-> FIN: Termino la eliminacion de 'Notas de crédito bonificacion' en CardSystem.ArchivosGenerales.")
+
+
+    def excect_cardsystem_delete(self, delete_values: list[dict]) -> None:
+        """ Ejecuta una transaccion donde elimina multiples registros de CardSystem.ArchivosGenerales. """
+
+        delete_cardsystem = text("""
+            DELETE FROM [NexusFuel].[CardSystem].[ArchivosGenerales]
+            WHERE nombreArchivo = :nombre_archivo;
+            """)
+        
+        registros = {
+            "exitosos": [],
+            "fallidos": [],
+            "errores": []
+        }
+
+        print(f"Total de registros a eliminar: {len(delete_values)}")
+        with engine.connect() as conn:
+            transaction = conn.begin()
+
+            try: 
+                for delete_value in delete_values:
+                    try:
+                        params = {'nombre_archivo': delete_value}
+                        result = conn.execute(delete_cardsystem, params)
+                        registros['exitosos'].append({
+                            "nombre_archivo": delete_value,
+                            "estado": "Elminado con exito.",
+                            "error": "NA"
+                        })
+                    except Exception as e:
+                        registros['fallidos'].append({
+                            "nombre_archivo": delete_value,
+                            "estado": "Error al eliminar.",
+                            "error": str(e)
+                        })
+                        print(f"ERROR: Hubo un error al eliminar el registro: {delete_value}")
+                        print(f"DETALLES:\n{e}")
+                transaction.commit()
+                print(f"Registros eliminados correctamente.")
+            except Exception as e:
+                transaction.rollback()
+                print(f"INFO: Transaccion delete revertida. {str(e)}")
+                registros["errores"].append({
+                            "error_general": str(e)
+                        })
+        return registros
 
     def excect_cardsystem_insert(self, insert_values: list[dict]) -> None:
         """ Ejecuta una transaccion de multiples insert a cardsystem. """
@@ -274,11 +321,8 @@ class Bonificaciones():
                             "nombre_archivo": insert['nombre_archivo'],
                             "destino": insert['destino']
                             })
-                        #print(f"INFO: Registro insertado: {insert['nombre_archivo']}")
-
                     except Exception as e:
-                        registros["fallidos"].append(
-                            {
+                        registros["fallidos"].append({
                                 "datos": insert,
                                 "nombre_archivo": insert["nombre_archivo"],
                                 "destino": insert['destino'],
@@ -286,12 +330,11 @@ class Bonificaciones():
                             })
                         print(f"ERROR: Hubo un error al insertar el registro: {insert['nombre_archivo']}")
                         print(f"DETALLES:\n{e}")
-                
                 transaction.commit()
                 print(f"Registros guardados correctamente.")
             except Exception as e:
                 transaction.rollback()
-                print(f"INFO: Transaccion revertida. {str(e)}")
+                print(f"INFO: Transaccion insert revertida. {str(e)}")
                 registros["errores"].append(f"Error general: {str(e)}")
         return registros
     
@@ -385,14 +428,16 @@ if __name__ == '__main__':
 
     bonificacion = Bonificaciones()
     sftp = servicio_sftp.Sftp()
-    df_completo = bonificacion.obtener_vencimientos(QUERY_SINERGIA)
+    df_completo = bonificacion.obtener_ncbonificacion(QUERY_SINERGIA)
     df_portal = bonificacion.obtener_dataframe_portal(QUERY_SINERGIA_PORTAL_ID)
-    clientes = bonificacion.obtener_clientes(df_completo) # Clientes unicos
+    clientes = bonificacion.obtener_clientes(df_completo)
+
 
     CLIENTES_SIN_ID = []
     ARCHIVOS_CREADOS_PATHS = []
     INSERTS_ARCHIVOS_GENERALES = []
     CLIENTES_NO_ENCONTRADOS = []
+    DELETE_ARCHIVOS_GENERALES = []
 
     for _, row in clientes.iterrows():
         cliente = row['Destino']
@@ -409,25 +454,17 @@ if __name__ == '__main__':
                             "Total Aplicado", "Fecha Bonificada"]
 
             df_salida = bonificacion.filtrar_columnas_dataframe(df_unico_cliente, columnas_requeridas)
-
-            #print(f"{cliente} - {client_id} - {id_cliente}\n")
-            #print(f"Datos del cliente: \n{datos_cliente}")
-            #input(df_unico_cliente.to_string()) 
-            #input(df_salida.to_string())
             
             archivo_salida = CrearDoumento(df_salida, PATH_FILES_SINERGIA)
             ruta_salida = archivo_salida.crear_documentos_csv(datos_cliente['nombre_archivo'])
             ARCHIVOS_CREADOS_PATHS.append(ruta_salida)
-            INSERTS_ARCHIVOS_GENERALES.append(
-                bonificacion.crear_cardsystem_insert(
-                    "Notas de crédito bonificación",
-                    datos_cliente['nombre_archivo'],
-                    id_cliente))
+            INSERTS_ARCHIVOS_GENERALES.append(bonificacion.crear_cardsystem_insert("Notas de crédito bonificación",datos_cliente['nombre_archivo'],id_cliente))
+            DELETE_ARCHIVOS_GENERALES.append(datos_cliente['nombre_archivo'])
         
         else:
             CLIENTES_NO_ENCONTRADOS.append(cliente)
-    
-    bonificacion.delete_registro_nc()
+
+    bonificacion.excect_cardsystem_delete(DELETE_ARCHIVOS_GENERALES)
     registros_insert = bonificacion.excect_cardsystem_insert(INSERTS_ARCHIVOS_GENERALES)
     sftp.ftp_send_list_files(HOST, PORT, USER, PSW, ARCHIVOS_CREADOS_PATHS)
     archivo_salida.limpiar_archivos(PATH_FILES_SINERGIA)

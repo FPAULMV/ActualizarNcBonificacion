@@ -11,7 +11,7 @@ class Sftp():
         
         if local_file.exists():
             with FTP() as ftp:
-                print(f"Enviando documento: {local_file.name}")
+                #print(f"Enviando documento: {local_file.name}")
                 ftp.connect(host, port, timeout=10)
                 ftp.login(user, psw)
 
