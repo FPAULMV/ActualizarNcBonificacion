@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notificación de Proceso Completado</title>
+    <style>
+        .notification-card {
+            max-width: 600px;
+            margin: 50px auto;
+            background: #ffff;
+            border-left: 5px solid #28a745;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        .notification-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 15px;
+        }
+        
+        .process-title h2 {
+            margin: 0;
+            color: #28a745;
+            font-size: 22px;
+        }
+        
+        .process-title p {
+            margin: 5px 0 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .process-details {
+            background: white;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .detail-item {
+            display: flex;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            width: 200px;
+            color: #495057;
+        }
+        
+        .status-badge {
+            background: #d4edda;
+            color: #155724;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="notification-card">
+        <div class="notification-header">
+            <div class="process-title">
+                <h2>PROCESO AUTOMÁTICO COMPLETADO</h2>
+                <p>Notificación del Sistema para Cuentas por Cobrar</p>
+            </div>
+        </div>
+        
+        <div class="process-details">
+            <div class="detail-item">
+                <div class="detail-label">Proceso Ejecutado:</div>
+                <div>Actualización de Reporte - Notas de Crédito de Clientes</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Estado:</div>
+                <div><span class="status-badge">EJECUCIÓN EXITOSA</span></div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Fecha y Hora:</div>
+                <div>{{fecha_actual}}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Registros Procesados:</div>
+                <div><strong>{{registros_procesados}}</strong> clientes</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, text
 from pandas import DataFrame
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-
+from SimpleMail import Correo, Servicios
 
 class Bonificaciones():
     def __init__(self):
@@ -406,6 +406,14 @@ if __name__ == '__main__':
         USER = str(os.getenv('USER'))
         PSW = str(os.getenv('PSW'))
 
+        #MAIL
+        MAIL_SERVIDOR = str(os.getenv('MAIL_SERVIDOR'))
+        MAIL_PUERTO = int(os.getenv('MAIL_PUERTO'))
+        MAIL_USUARIO = str(os.getenv('MAIL_USUARIO'))
+        MAIL_PSW = str(os.getenv('MAIL_PSW'))
+        TO = [correo.strip() for correo in os.getenv('TO').split(",") if correo.strip()]
+        TEMPLATE_PATH = str(os.getenv('TEMPLATE_PATH'))
+
         # PATS
         PATH_FILES_SINERGIA = Path(os.getenv('PATH_FILES_SINERGIA'))
         
@@ -425,7 +433,9 @@ if __name__ == '__main__':
         #Agregar Log.info
         print("-> FIN: de la carga de las variables de entorno.\n")
 
-
+    correo = Correo(MAIL_SERVIDOR, MAIL_PUERTO, MAIL_USUARIO, MAIL_PSW)
+    html = Servicios(TEMPLATE_PATH)
+    
     bonificacion = Bonificaciones()
     sftp = servicio_sftp.Sftp()
     df_completo = bonificacion.obtener_ncbonificacion(QUERY_SINERGIA)
@@ -469,6 +479,16 @@ if __name__ == '__main__':
     sftp.ftp_send_list_files(HOST, PORT, USER, PSW, ARCHIVOS_CREADOS_PATHS)
     archivo_salida.limpiar_archivos(PATH_FILES_SINERGIA)
     print(("-> Fin de la ejecucion del programa. <-".upper()))
+
+
+
+    reemplazos = {"registros_procesados": str(len(ARCHIVOS_CREADOS_PATHS))}
+    html_formateado = html.format_html(reemplazos)
+    correo.enviar(TO, 
+            subject="Notificacion de Actualizacion.",
+            cuerpo_texto=html_formateado)
+
+    print(("-> Correo enviado. <-".upper()))
 
 
 
