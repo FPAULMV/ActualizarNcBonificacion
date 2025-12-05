@@ -405,6 +405,10 @@ if __name__ == '__main__':
         PORT = int(os.getenv('PORT'))
         USER = str(os.getenv('USER'))
         PSW = str(os.getenv('PSW'))
+        S_USER = str(os.getenv('S_USER'))
+        S_PSW = str(os.getenv('S_PSW'))
+        S_PORT = int(os.getenv('S_PORT'))
+
 
         #MAIL
         MAIL_SERVIDOR = str(os.getenv('MAIL_SERVIDOR'))
@@ -476,7 +480,7 @@ if __name__ == '__main__':
 
     bonificacion.excect_cardsystem_delete(DELETE_ARCHIVOS_GENERALES)
     registros_insert = bonificacion.excect_cardsystem_insert(INSERTS_ARCHIVOS_GENERALES)
-    sftp.ftp_send_list_files(HOST, PORT, USER, PSW, ARCHIVOS_CREADOS_PATHS)
+    sftp.ssh_send_list_files(HOST, S_PORT, S_USER, S_PSW, ARCHIVOS_CREADOS_PATHS)
     archivo_salida.limpiar_archivos(PATH_FILES_SINERGIA)
     print(("-> Fin de la ejecucion del programa. <-".upper()))
 

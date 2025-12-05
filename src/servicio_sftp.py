@@ -1,6 +1,8 @@
 import sys
 from ftplib import FTP
 from pathlib import Path
+import paramiko
+import socket
 
 
 class Sftp():
@@ -55,8 +57,47 @@ class Sftp():
             if len(registros['fallidos']) > 0:
                 print(f"DETALLE: {registros['fallidos']}")
 
+    def ssh_send_list_files(self, host: str, port: int, user: str, psw: str, files: list[Path]) -> None:
+        """Envía múltiples archivos por SSH."""
+        try:
+            sock = socket.create_connection((host, port), timeout=10)
+            transport = paramiko.Transport(sock)
+            transport.banner_timeout = 10
+            transport.connect(username=user, password=psw)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+        except paramiko.ssh_exception.AuthenticationException:
+            print(f"[ERROR] Autenticación SSH fallida para usuario: {user}")
+            print(f"[INFO] Verifica que la contraseña sea correcta: {psw}")
+            return
+        except Exception as e:
+            print(f"[ERROR] No se pudo conectar por SSH: {e}")
+            return
 
-    def ftp_unlink(local_file: Path) -> None:
-        """ Eliminar archivos. (Sin implementar. Sin uso especifico.)"""
-        #local_file.unlink(missing_ok = False)
-        pass
+        registros = {
+            "exitosos": [],
+            "fallidos": []
+        } 
+    
+        print(f"Archivos a enviar: {len(files)}")
+        for local_file in files:
+            if local_file is None:
+                print(f"[ERROR] la lista incluye un elemento no valido -> {local_file}")
+                registros['fallidos'].append(str(f"Archivo invalido->{local_file}"))
+                continue
+
+            if not local_file.exists():
+                print(f"[ERROR] No se encontró: {local_file}")
+                registros['fallidos'].append(local_file)
+                continue
+
+            print(f"Enviando: {local_file.name}")
+            sftp.put(str(local_file), local_file.name)
+            registros['exitosos'].append(local_file)
+            
+        sftp.close()
+        transport.close()
+        
+        print(f"Total de archivos enviados: {len(registros['exitosos'])}")
+        print(f"Total de archivos NO enviados: {len(registros['fallidos'])}")
+        if len(registros['fallidos']) > 0:
+            print(f"DETALLE: {registros['fallidos']}")
