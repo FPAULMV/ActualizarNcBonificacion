@@ -355,6 +355,18 @@ class Bonificaciones():
         finally:
             print("-> FIN: Termino de crear el diccionario con los datos del cliente.\n")
 
+    def es_hora(self, hora_inicio: str = '6:50', hora_fin: str = '10:00', formato: str = '%H:%M'): 
+        """Valida que la fecha actual este entre las fechas establecidas."""
+
+        hora_actual = datetime.now().time()
+        inicio = datetime.strptime(hora_inicio, formato).time()
+        fin = datetime.strptime(hora_fin, formato).time()
+
+        if inicio <= fin:
+            return inicio <= hora_actual <= fin
+        else:
+            return False
+
 class CrearDoumento():
     """Crea documentos a partir de un DataFrame."""
 
@@ -394,6 +406,9 @@ class CrearDoumento():
                     file.unlink()
                 except Exception as e:
                     print(f"[ERROR] No se pudo borrar {file}: {e}")
+
+
+
 
 
 if __name__ == '__main__':
@@ -436,16 +451,12 @@ if __name__ == '__main__':
     finally:
         #Agregar Log.info
         print("-> FIN: de la carga de las variables de entorno.\n")
-
-    correo = Correo(MAIL_SERVIDOR, MAIL_PUERTO, MAIL_USUARIO, MAIL_PSW)
-    html = Servicios(TEMPLATE_PATH)
     
     bonificacion = Bonificaciones()
     sftp = servicio_sftp.Sftp()
     df_completo = bonificacion.obtener_ncbonificacion(QUERY_SINERGIA)
     df_portal = bonificacion.obtener_dataframe_portal(QUERY_SINERGIA_PORTAL_ID)
     clientes = bonificacion.obtener_clientes(df_completo)
-
 
     CLIENTES_SIN_ID = []
     ARCHIVOS_CREADOS_PATHS = []
@@ -482,18 +493,19 @@ if __name__ == '__main__':
     registros_insert = bonificacion.excect_cardsystem_insert(INSERTS_ARCHIVOS_GENERALES)
     sftp.ssh_send_list_files(HOST, S_PORT, S_USER, S_PSW, ARCHIVOS_CREADOS_PATHS)
     archivo_salida.limpiar_archivos(PATH_FILES_SINERGIA)
+
+    if bonificacion.es_hora():
+        correo = Correo(MAIL_SERVIDOR, MAIL_PUERTO, MAIL_USUARIO, MAIL_PSW)
+        html = Servicios(TEMPLATE_PATH)
+        reemplazos = {"registros_procesados": str(len(ARCHIVOS_CREADOS_PATHS))}
+        html_formateado = html.format_html(reemplazos)
+        correo.enviar(TO, 
+                subject="Notificacion de Actualizacion.",
+                cuerpo_texto=html_formateado)
+
+        print(("-> Correo enviado. <-".upper()))
+
     print(("-> Fin de la ejecucion del programa. <-".upper()))
-
-
-
-    reemplazos = {"registros_procesados": str(len(ARCHIVOS_CREADOS_PATHS))}
-    html_formateado = html.format_html(reemplazos)
-    correo.enviar(TO, 
-            subject="Notificacion de Actualizacion.",
-            cuerpo_texto=html_formateado)
-
-    print(("-> Correo enviado. <-".upper()))
-
 
 
 
