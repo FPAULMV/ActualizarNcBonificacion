@@ -1,12 +1,13 @@
-import sys
+import sys, paramiko, socket, os
 from ftplib import FTP
 from pathlib import Path
-import paramiko
-import socket
+from dotenv import load_dotenv
 
 
 class Sftp():
     def __init__(self):
+        load_dotenv()
+        self.REMOTE_PATH = os.getenv('REMOTE_PATH')
         pass
 
     def ftp_send_file(self, host: str, port: int, user: str, psw: str, local_file: Path) -> None:
@@ -91,7 +92,8 @@ class Sftp():
                 continue
 
             print(f"Enviando: {local_file.name}")
-            sftp.put(str(local_file), local_file.name)
+            #print(f"Ruta remota: {self.REMOTE_PATH}{local_file.name}")
+            sftp.put(str(local_file), str(f"{self.REMOTE_PATH}{local_file.name}"))
             registros['exitosos'].append(local_file)
             
         sftp.close()

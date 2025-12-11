@@ -489,6 +489,8 @@ if __name__ == '__main__':
         else:
             CLIENTES_NO_ENCONTRADOS.append(cliente)
 
+    print("Clientes no encontrados:")
+    print(CLIENTES_NO_ENCONTRADOS)
     bonificacion.excect_cardsystem_delete(DELETE_ARCHIVOS_GENERALES)
     registros_insert = bonificacion.excect_cardsystem_insert(INSERTS_ARCHIVOS_GENERALES)
     sftp.ssh_send_list_files(HOST, S_PORT, S_USER, S_PSW, ARCHIVOS_CREADOS_PATHS)

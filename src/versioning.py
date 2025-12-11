@@ -1,5 +1,5 @@
 __app_name__ = "Notas de crédito bonificacion" 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __release_date__ = "2025-11-25"
 __author__ = "© Paul Morales -> paul.morales@fpaulmv.com"
 
